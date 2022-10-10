@@ -1,23 +1,30 @@
 
+# Greg Tracey
+# 10 October 2022
+# B9122: Computing for Business Research
+# Homework #2
+###############################################################################
 
 # import packages 
 from bs4 import BeautifulSoup
 import urllib.request
 import re
 
+# pass seed URL of SEC press release site
 seed_url = "https://www.sec.gov/news/pressreleases"
 
+# lists for keeping track of webpages
 urls = [seed_url]    #queue of urls to crawl
 seen = [seed_url]    #stack of urls seen so far
-release = []
 opened = []          #we keep track of seen urls so that we don't revisit them
 charges_pages = []
 full_text = []
 
-########## BASE CODE FROM CLASS ###############################################
-maxNumUrl = 10; #set the maximum number of urls to visit
+cutoff = 20 # set number of press releases wanted to 20
+
+########## BASE CODE FOR VISITING SITES FROM CLASS ############################
 print("Starting with url="+str(urls))
-while len(urls) > 0 and len(opened) < maxNumUrl:
+while len(urls) > 0 and len(charges_pages) < cutoff:
     # DEQUEUE A URL FROM urls AND TRY TO OPEN AND READ IT
     try:
         curr_url=urls.pop(0)
@@ -31,32 +38,18 @@ while len(urls) > 0 and len(opened) < maxNumUrl:
         print("Unable to access= "+curr_url)
         print(ex)
         continue    #skip code below
-        
+###############################################################################
 
-    # IF URL OPENS, CHECK WHICH URLS THE PAGE CONTAINS
-    # ADD THE URLS FOUND TO THE QUEUE url AND seen
-    soup = BeautifulSoup(webpage, features="lxml")  #creates object soup
-    # Put child URLs into the stack
-    for tag in soup.find_all('td',{'class':'views-field views-field-field-display-title'}):
-        tag = tag.find('a')
-        childUrl = tag['href'] #extract just the link
-        childUrl = urllib.parse.urljoin(seed_url, childUrl)
-        urls.append(childUrl)
-
-
-cut = 0
-
-for i in range(1, len(urls)):
+    soup = BeautifulSoup(webpage, features="lxml")  
     
-    if cut < 21:
-        page = urls[i]
-        req = urllib.request.Request(page, headers={'User-Agent': 'Mozilla/5.0'})
-        webpage = urllib.request.urlopen(req).read()
-        soup = BeautifulSoup(webpage, features = 'lxml')
+    # only check for charges mention if page has not already been marked
+    if curr_url not in charges_pages:
+    
+        # Get text from webpages and split it up into a list of words
         text = soup.get_text()
-        
         all_words = text.split() 
         
+        # clean up list of words
         for i in range(len(all_words)):
             all_words[i] = re.sub('[\W\d]', '', all_words[i])
             all_words[i] = all_words[i].lower() 
@@ -65,20 +58,30 @@ for i in range(1, len(urls)):
         all_words = all_words[:len(all_words) - 30] # get rid of random hyperlinks at the bottom
         output_text = ' '.join(all_words)
         
+        # Check pages for a mention of "charges" and report if one is found
         if "charges" in all_words:
-            print(page)
             print("Charges.")
-            charges_pages.append(page)
+            charges_pages.append(curr_url)
             full_text.append(output_text)
-            cut += 1
         else:
-            print(page)
             print("No charges.")
-            
+
+
+    # Put child URLs into the stack
+    for tag in soup.find_all('td',{'class':'views-field views-field-field-display-title'}):
+        tag = tag.find('a')
+        childUrl = tag['href'] #extract just the link
+        childUrl = urllib.parse.urljoin(seed_url, childUrl)
+        urls.append(childUrl)
+        
+    if seed_url in childUrl and childUrl not in seen:
+        seen.append(childUrl)
+        
+    
+# Print out URLS and text of press releases 
 for i in range(1, len(charges_pages)):
     print(charges_pages[i]) 
-    print(" ")
-    print(full_text[i])
-    print(" ")
+    print("/n" + full_text[i] + "\n")
+
 
 
